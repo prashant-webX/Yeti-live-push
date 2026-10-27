@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyper-Optimized HLS Stream Studio & Archive</title>
+    <!-- Include HLS.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --accent-color: #3b82f6;
+            --accent-hover: #2563eb;
+            --danger-color: #ef4444;
+            --danger-hover: #dc2626;
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: var(--text-color);
+            box-sizing: border-box;
+        }
+
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .player-wrapper {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            max-height: 60vh;
+            background-color: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            flex-shrink: 0;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* Interactive Watermark Styles */
+        .draggable-watermark {
+            position: absolute;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            z-index: 10;
+        }
+
+        .draggable-watermark:active {
+            cursor: grabbing;
+        }
+
+        body:not(.embed-mode) .draggable-watermark {
+            border: 1px dashed rgba(255, 255, 255, 0.5);
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .watermark-text-elem {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            backdrop-filter: blur(2px);
+            white-space: nowrap;
+        }
+
+        .watermark-img-elem {
+            max-width: 150px;
+            max-height: 60px;
+            object-fit: contain;
+            display: block;
+            pointer-events: none;
+        }
+
+        .controls-panel {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .controls-panel h2 {
+            margin: 0 0 5px 0;
+            font-size: 1.25rem;
+        }
+
+        .controls-panel p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .input-group label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .input-group input {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            color: var(--text-color);
+            font-size: 0.95rem;
+        }
+
+        .range-slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .range-slider-group input[type="range"] {
+            flex-grow: 1;
+            accent-color: var(--accent-color);
+            cursor: pointer;
+        }
+
+        .code-output-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            background: rgba(0,0,0,0.2);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .code-output-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .code-output-row input {
+            flex-grow: 1;
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 8px 10px;
+            color: var(--text-muted);
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 5px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 10px 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+
+        button:hover {
+            background-color: var(--accent-hover);
+        }
+
+        button.danger-btn {
+            background-color: var(--danger-color);
+        }
+        button.danger-btn:hover {
+            background-color: var(--danger-hover);
+        }
+
+        /* Archive Section */
+        .archive-section {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .archive-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .archive-item {
+            background: var(--bg-color);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .archive-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .archive-links {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+
+        .archive-link-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .archive-link-row input {
+            flex-grow: 1;
+            background: #0b0f19;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 6px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        .archive-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .archive-actions button {
+            padding: 5px 12px;
+            font-size: 0.8rem;
+        }
+
+        /* Loading Overlay */
+        #loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.75);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 12px;
+            color: white;
+            font-size: 0.95rem;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            z-index: 20;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            border-top-color: var(--accent-color);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Embed mode styling */
+        body.embed-mode .controls-panel,
+        body.embed-mode .archive-section {
+            display: none;
+        }
+        body.embed-mode .app-container {
+            padding: 0;
+            height: 100vh;
+            max-width: 100%;
+        }
+        body.embed-mode .player-wrapper {
+            border-radius: 0;
+            box-shadow: none;
+            max-height: 100vh;
+            height: 100%;
+            aspect-ratio: unset;
+        }
+        body.embed-mode .draggable-watermark {
+            border: none !important;
+            padding: 0 !important;
+            cursor: default !important;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Video Player Container -->
+        <div class="player-wrapper" id="player-wrapper">
+            <video id="video" controls playsinline></video>
+            <div id="loading-overlay">
+                <div class="spinner"></div>
+                <span id="loading-text">Buffering on ultra-low speed network...</span>
+            </div>
+        </div>
+
+        <!-- Studio & Generator Panel -->
+        <div class="controls-panel">
+            <h2>HLS Stream Studio & Watermark Editor</h2>
+            <p>Configured with extreme low-speed resiliency. Drag watermarks to position, adjust scale, and save to archive.</p>
+            
+            <div class="form-grid">
+                <div class="input-group">
+                    <label for="stream-url-input">Stream URL (.m3u8)</label>
+                    <input type="text" id="stream-url-input" value="http://103.151.60.162:2122/play/a027/index.m3u8?hls" oninput="updateEmbedCodes()">
+                </div>
+                <div class="input-group">
+                    <label for="thumbnail-input">Thumbnail Image URL (Poster)</label>
+                    <input type="text" id="thumbnail-input" placeholder="https://example.com/poster.jpg" oninput="updateEmbedCodes()">
+                </div>
+                
+                <div class="input-group">
+                    <label for="watermark-text-input">Watermark Text</label>
+                    <input type="text" id="watermark-text-input" placeholder="LIVE TV" oninput="updateWatermarkTextContent(); updateEmbedCodes();">
+                </div>
+                <div class="input-group">
+                    <label for="wtext-scale">Text Zoom / Scale (<span id="wtext-scale-val">1.0</span>x)</label>
+                    <div class="range-slider-group">
+                        <input type="range" id="wtext-scale" min="0.5" max="3.0" step="0.1" value="1.0" oninput="updateWatermarkStyles(); updateEmbedCodes();">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="watermark-img-input">Watermark Image URL (Logo)</label>
+                    <input type="text" id="watermark-img-input" placeholder="https://example.com/logo.png" oninput="updateWatermarkImgContent(); updateEmbedCodes();">
+                </div>
+                <div class="input-group">
+                    <label for="wimg-scale">Logo Zoom / Scale (<span id="wimg-scale-val">1.0</span>x)</label>
+                    <div class="range-slider-group">
+                        <input type="range" id="wimg-scale" min="0.5" max="3.0" step="0.1" value="1.0" oninput="updateWatermarkStyles(); updateEmbedCodes();">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="width-input">Player Width</label>
+                    <input type="text" id="width-input" value="100%" oninput="updateEmbedCodes()">
+                </div>
+                <div class="input-group">
+                    <label for="height-input">Player Height</label>
+                    <input type="text" id="height-input" value="450px" oninput="updateEmbedCodes()">
+                </div>
+            </div>
+
+            <div class="code-output-group">
+                <label>Direct Player Link (Format 2)</label>
+                <div class="code-output-row">
+                    <input type="text" id="direct-link-code" readonly>
+                    <button onclick="copyCode('direct-link-code', event)">Copy Link</button>
+                </div>
+            </div>
+
+            <div class="code-output-group">
+                <label>HTML Iframe Tag (Format 1)</label>
+                <div class="code-output-row">
+                    <input type="text" id="iframe-code" readonly>
+                    <button onclick="copyCode('iframe-code', event)">Copy Iframe</button>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button onclick="saveCurrentToArchive()">Save to Archive List</button>
+            </div>
+        </div>
+
+        <!-- Archived Embeds List Section -->
+        <div class="archive-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Archived Embeds List (Saved in Browser)</h2>
+                <button class="danger-btn" onclick="clearArchive()">Clear All Archive</button>
+            </div>
+            <p>Your generated embeds are archived here and survive page refreshes.</p>
+            <div class="archive-list" id="archive-list-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const playerWrapper = document.getElementById('player-wrapper');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const customUrl = urlParams.get('url');
+        const customPoster = urlParams.get('poster');
+        
+        const customWText = urlParams.get('wtext');
+        const wtX = parseFloat(urlParams.get('wt_x')) || 20;
+        const wtY = parseFloat(urlParams.get('wt_y')) || 20;
+        const wtScale = parseFloat(urlParams.get('wt_scale')) || 1.0;
+
+        const customWImg = urlParams.get('wimg');
+        const wiX = parseFloat(urlParams.get('wi_x')) || 20;
+        const wiY = parseFloat(urlParams.get('wi_y')) || 350;
+        const wiScale = parseFloat(urlParams.get('wi_scale')) || 1.0;
+
+        const defaultStream = 'http://103.151.60.162:2122/play/a027/index.m3u8?hls';
+        const videoSrc = customUrl ? decodeURIComponent(customUrl) : defaultStream;
+        const posterSrc = customPoster ? decodeURIComponent(customPoster) : '';
+
+        if (customUrl) document.getElementById('stream-url-input').value = videoSrc;
+        if (customPoster) document.getElementById('thumbnail-input').value = posterSrc;
+        if (customWText) document.getElementById('watermark-text-input').value = customWText;
+        if (customWImg) document.getElementById('watermark-img-input').value = customWImg;
+        document.getElementById('wtext-scale').value = wtScale;
+        document.getElementById('wimg-scale').value = wiScale;
+
+        if (urlParams.get('embed') === 'true') {
+            document.body.classList.add('embed-mode');
+        }
+
+        if (posterSrc) video.poster = posterSrc;
+
+        // --- Watermark Elements ---
+        let wtElement = null;
+        let wiElement = null;
+
+        function initWatermarks() {
+            const textVal = document.getElementById('watermark-text-input').value.trim();
+            if (textVal) {
+                wtElement = document.createElement('div');
+                wtElement.className = 'draggable-watermark';
+                wtElement.style.left = wtX + 'px';
+                wtElement.style.top = wtY + 'px';
+                
+                const inner = document.createElement('div');
+                inner.className = 'watermark-text-elem';
+                inner.textContent = textVal;
+                wtElement.appendChild(inner);
+                playerWrapper.appendChild(wtElement);
+                makeDraggable(wtElement);
+            }
+
+            const imgVal = document.getElementById('watermark-img-input').value.trim();
+            if (imgVal) {
+                wiElement = document.createElement('div');
+                wiElement.className = 'draggable-watermark';
+                wiElement.style.left = wiX + 'px';
+                wiElement.style.top = wiY + 'px';
+                
+                const img = document.createElement('img');
+                img.className = 'watermark-img-elem';
+                img.src = imgVal;
+                wiElement.appendChild(img);
+                playerWrapper.appendChild(wiElement);
+                makeDraggable(wiElement);
+            }
+            updateWatermarkStyles();
+        }
+
+        function updateWatermarkTextContent() {
+            if (!document.body.classList.contains('embed-mode')) {
+                if (wtElement) wtElement.remove();
+                wtElement = null;
+                const textVal = document.getElementById('watermark-text-input').value.trim();
+                if (textVal) {
+                    wtElement = document.createElement('div');
+                    wtElement.className = 'draggable-watermark';
+                    wtElement.style.left = '20px';
+                    wtElement.style.top = '20px';
+                    
+                    const inner = document.createElement('div');
+                    inner.className = 'watermark-text-elem';
+                    inner.textContent = textVal;
+                    wtElement.appendChild(inner);
+                    playerWrapper.appendChild(wtElement);
+                    makeDraggable(wtElement);
+                }
+            }
+        }
+
+        function updateWatermarkImgContent() {
+            if (!document.body.classList.contains('embed-mode')) {
+                if (wiElement) wiElement.remove();
+                wiElement = null;
+                const imgVal = document.getElementById('watermark-img-input').value.trim();
+                if (imgVal) {
+                    wiElement = document.createElement('div');
+                    wiElement.className = 'draggable-watermark';
+                    wiElement.style.left = '20px';
+                    wiElement.style.top = '300px';
+                    
+                    const img = document.createElement('img');
+                    img.className = 'watermark-img-elem';
+                    img.src = imgVal;
+                    wiElement.appendChild(img);
+                    playerWrapper.appendChild(wiElement);
+                    makeDraggable(wiElement);
+                }
+            }
+        }
+
+        function updateWatermarkStyles() {
+            const wtScaleVal = document.getElementById('wtext-scale').value;
+            const wiScaleVal = document.getElementById('wimg-scale').value;
+
+            document.getElementById('wtext-scale-val').textContent = wtScaleVal;
+            document.getElementById('wimg-scale-val').textContent = wiScaleVal;
+
+            if (wtElement) {
+                wtElement.style.transform = `scale(${wtScaleVal})`;
+                wtElement.style.transformOrigin = 'top left';
+            }
+            if (wiElement) {
+                wiElement.style.transform = `scale(${wiScaleVal})`;
+                wiElement.style.transformOrigin = 'top left';
+            }
+        }
+
+        function makeDraggable(elm) {
+            if (document.body.classList.contains('embed-mode')) return;
+            let startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+            elm.onpointerdown = dragMouseDown;
+
+            function dragMouseDown(e) {
+                e.preventDefault();
+                startX = e.clientX;
+                startY = e.clientY;
+                initialLeft = elm.offsetLeft;
+                initialTop = elm.offsetTop;
+                document.onpointermove = elementDrag;
+                document.onpointerup = closeDragElement;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                let newLeft = initialLeft + (e.clientX - startX);
+                let newTop = initialTop + (e.clientY - startY);
+                let maxLeft = playerWrapper.clientWidth - elm.offsetWidth;
+                let maxTop = playerWrapper.clientHeight - elm.offsetHeight;
+                newLeft = Math.max(0, Math.min(newLeft, maxLeft));
+                newTop = Math.max(0, Math.min(newTop, maxTop));
+                elm.style.left = newLeft + 'px';
+                elm.style.top = newTop + 'px';
+                updateEmbedCodes();
+            }
+
+            function closeDragElement() {
+                document.onpointermove = null;
+                document.onpointerup = null;
+                updateEmbedCodes();
+            }
+        }
+
+        // --- HYPER-OPTIMIZED HLS.JS CONFIG FOR EXTREME LOW SPEED ---
+        const hlsConfig = {
+            // Large buffer settings to accumulate video slowly over weak connections
+            maxBufferLength: 120,          // 2 minutes of buffer
+            maxMaxBufferLength: 300,       // Up to 5 minutes buffer cap
+            maxBufferSize: 90 * 1000 * 1000, // 90 MB memory allocation
+            maxBufferHole: 1.0,            // Tolerate 1-second gaps to skip minor packet loss without stopping
+            
+            // Assume extremely low starting bandwidth (150 kbps) to force lowest quality layer
+            abrEwmaDefaultEstimate: 150000,
+            abrBandWidthFactor: 0.8,
+            abrBandWidthUpFactor: 0.3,     // Very conservative quality switching
+            
+            // Extreme timeout & retry parameters for crawling networks
+            fragLoadingTimeOut: 60000,     // 60 seconds per fragment timeout
+            fragLoadingMaxRetry: 30,       // Up to 30 retries before giving up
+            fragLoadingRetryDelay: 3000,   // 3 second pause between retries
+            fragLoadingMaxRetryTimeout: 64000,
+            
+            manifestLoadingTimeOut: 45000,
+            manifestLoadingMaxRetry: 15,
+            manifestLoadingRetryDelay: 2000,
+            
+            levelLoadingTimeOut: 45000,
+            levelLoadingMaxRetry: 15,
+            
+            enableWorker: true,
+            lowLatencyMode: false,         // Standard latency allows building a robust buffer cushion
+            startLevel: 0                  // Force start on the lowest quality rendition
+        };
+
+        function showLoading(text) {
+            loadingText.textContent = text;
+            loadingOverlay.style.opacity = '1';
+        }
+
+        function hideLoading() {
+            loadingOverlay.style.opacity = '0';
+        }
+
+        if (Hls.isSupported()) {
+            const hls = new Hls(hlsConfig);
+            hls.loadSource(videoSrc);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                showLoading('Buffering stream on ultra-low bandwidth...');
+                video.play().catch(e => hideLoading());
+            });
+
+            video.addEventListener('playing', hideLoading);
+            video.addEventListener('waiting', () => showLoading('Extremely slow network - buffering...'));
+
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            showLoading('Network lag detected. Retrying connection...');
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            showLoading('Recovering stream data...');
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            showLoading('Restarting stream...');
+                            hls.destroy();
+                            break;
+                    }
+                }
+            });
+        } 
+        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = videoSrc;
+            video.addEventListener('loadedmetadata', () => video.play().catch(e => {}));
+        }
+
+        // --- Embed Code Generation ---
+        function generateUrls() {
+            const streamUrl = document.getElementById('stream-url-input').value.trim() || defaultStream;
+            const posterUrl = document.getElementById('thumbnail-input').value.trim();
+            const wText = document.getElementById('watermark-text-input').value.trim();
+            const wImg = document.getElementById('watermark-img-input').value.trim();
+            const wtScaleVal = document.getElementById('wtext-scale').value;
+            const wiScaleVal = document.getElementById('wimg-scale').value;
+            const width = document.getElementById('width-input').value || '100%';
+            const height = document.getElementById('height-input').value || '450px';
+            
+            const currentUrl = window.location.href.split('?')[0];
+            
+            let queryParams = `?url=${encodeURIComponent(streamUrl)}&embed=true`;
+            if (posterUrl) queryParams += `&poster=${encodeURIComponent(posterUrl)}`;
+            if (wText) {
+                queryParams += `&wtext=${encodeURIComponent(wText)}`;
+                queryParams += `&wt_x=${wtElement ? parseInt(wtElement.style.left) || 20 : 20}`;
+                queryParams += `&wt_y=${wtElement ? parseInt(wtElement.style.top) || 20 : 20}`;
+                queryParams += `&wt_scale=${wtScaleVal}`;
+            }
+            if (wImg) {
+                queryParams += `&wimg=${encodeURIComponent(wImg)}`;
+                queryParams += `&wi_x=${wiElement ? parseInt(wiElement.style.left) || 20 : 20}`;
+                queryParams += `&wi_y=${wiElement ? parseInt(wiElement.style.top) || 350 : 350}`;
+                queryParams += `&wi_scale=${wiScaleVal}`;
+            }
+
+            const directLink = `${currentUrl}${queryParams}`;
+            const iframeTag = `<iframe src="${directLink}" width="${width}" height="${height}" frameborder="0" sandbox="allow-scripts allow-same-origin allow-presentation" allowfullscreen allow="autoplay"></iframe>`;
+
+            return { directLink, iframeTag, streamUrl, width, height };
+        }
+
+        function updateEmbedCodes() {
+            const data = generateUrls();
+            document.getElementById('direct-link-code').value = data.directLink;
+            document.getElementById('iframe-code').value = data.iframeTag;
+        }
+
+        function copyCode(elementId, event) {
+            const codeInput = document.getElementById(elementId);
+            codeInput.select();
+            codeInput.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(codeInput.value).then(() => {
+                const btn = event.target;
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = orig, 2000);
+            });
+        }
+
+        // --- Archive & LocalStorage Management ---
+        function getArchive() {
+            try {
+                return JSON.parse(localStorage.getItem('hls_embed_archive') || '[]');
+            } catch(e) {
+                return [];
+            }
+        }
+
+        function saveCurrentToArchive() {
+            const data = generateUrls();
+            const archive = getArchive();
+            
+            const newItem = {
+                id: Date.now(),
+                date: new Date().toLocaleString(),
+                streamUrl: data.streamUrl,
+                directLink: data.directLink,
+                iframeTag: data.iframeTag
+            };
+
+            archive.unshift(newItem);
+            if (archive.length > 20) archive.pop();
+
+            localStorage.setItem('hls_embed_archive', JSON.stringify(archive));
+            renderArchive();
+            alert('Embed configuration saved to archive!');
+        }
+
+        function deleteArchiveItem(id) {
+            let archive = getArchive();
+            archive = archive.filter(item => item.id !== id);
+            localStorage.setItem('hls_embed_archive', JSON.stringify(archive));
+            renderArchive();
+        }
+
+        function clearArchive() {
+            if (confirm('Are you sure you want to clear all archived embeds?')) {
+                localStorage.removeItem('hls_embed_archive');
+                renderArchive();
+            }
+        }
+
+        function renderArchive() {
+            const container = document.getElementById('archive-list-container');
+            const archive = getArchive();
+
+            if (archive.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 15px;">No archived embeds yet. Click "Save to Archive List" above.</p>';
+                return;
+            }
+
+            container.innerHTML = archive.map(item => `
+                <div class="archive-item">
+                    <div class="archive-item-header">
+                        <span>🕒 ${item.date}</span>
+                        <span style="color: var(--text-color); font-weight: 500; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Stream: ${item.streamUrl}</span>
+                    </div>
+                    <div class="archive-links">
+                        <div class="archive-link-row">
+                            <span style="width: 65px; color: var(--text-muted);">Format 2:</span>
+                            <input type="text" value="${item.directLink}" readonly id="dl-${item.id}">
+                            <button onclick="copyArchivedText('dl-${item.id}', event)">Copy Link</button>
+                        </div>
+                        <div class="archive-link-row">
+                            <span style="width: 65px; color: var(--text-muted);">Format 1:</span>
+                            <input type="text" value="${item.iframeTag.replace(/"/g, '&quot;')}" readonly id="if-${item.id}">
+                            <button onclick="copyArchivedText('if-${item.id}', event)">Copy Iframe</button>
+                        </div>
+                    </div>
+                    <div class="archive-actions">
+                        <button class="danger-btn" onclick="deleteArchiveItem(${item.id})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function copyArchivedText(elementId, event) {
+            const input = document.getElementById(elementId);
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).then(() => {
+                const btn = event.target;
+                const orig = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = orig, 2000);
+            });
+        }
+
+        window.onload = function() {
+            initWatermarks();
+            updateEmbedCodes();
+            renderArchive();
+        };
+    </script>
+</body>
+</html>
