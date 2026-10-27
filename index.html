@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HLS Stream Studio & Embed Generator</title>
+    <title>HLS Stream Studio & Cloud Proxy Generator</title>
     <!-- Include HLS.js -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
@@ -25,7 +25,7 @@
             width: 100%;
             height: 100%;
             background-color: var(--bg-color);
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             color: var(--text-color);
             box-sizing: border-box;
         }
@@ -58,7 +58,6 @@
             display: block;
         }
 
-        /* Interactive Watermark Styles */
         .draggable-watermark {
             position: absolute;
             cursor: grab;
@@ -66,10 +65,7 @@
             touch-action: none;
             z-index: 10;
         }
-
-        .draggable-watermark:active {
-            cursor: grabbing;
-        }
+        .draggable-watermark:active { cursor: grabbing; }
 
         body:not(.embed-mode) .draggable-watermark {
             border: 1px dashed rgba(255, 255, 255, 0.5);
@@ -84,7 +80,6 @@
             border-radius: 6px;
             font-size: 14px;
             font-weight: 600;
-            letter-spacing: 0.5px;
             backdrop-filter: blur(2px);
             white-space: nowrap;
         }
@@ -97,7 +92,7 @@
             pointer-events: none;
         }
 
-        .controls-panel {
+        .controls-panel, .archive-section {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 12px;
@@ -107,16 +102,8 @@
             gap: 15px;
         }
 
-        .controls-panel h2 {
-            margin: 0 0 5px 0;
-            font-size: 1.25rem;
-        }
-
-        .controls-panel p {
-            margin: 0;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
+        .controls-panel h2, .archive-section h2 { margin: 0 0 5px 0; font-size: 1.25rem; }
+        .controls-panel p, .archive-section p { margin: 0; color: var(--text-muted); font-size: 0.9rem; }
 
         .form-grid {
             display: grid;
@@ -124,17 +111,8 @@
             gap: 15px;
         }
 
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .input-group label {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
+        .input-group { display: flex; flex-direction: column; gap: 5px; }
+        .input-group label { font-size: 0.85rem; color: var(--text-muted); }
         .input-group input {
             background: var(--bg-color);
             border: 1px solid var(--border-color);
@@ -144,25 +122,11 @@
             font-size: 0.95rem;
         }
 
-        .stream-input-row {
-            display: flex;
-            gap: 10px;
-        }
-        .stream-input-row input {
-            flex-grow: 1;
-        }
+        .stream-input-row { display: flex; gap: 10px; }
+        .stream-input-row input { flex-grow: 1; }
 
-        .range-slider-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .range-slider-group input[type="range"] {
-            flex-grow: 1;
-            accent-color: var(--accent-color);
-            cursor: pointer;
-        }
+        .range-slider-group { display: flex; align-items: center; gap: 10px; }
+        .range-slider-group input[type="range"] { flex-grow: 1; accent-color: var(--accent-color); cursor: pointer; }
 
         .code-output-group {
             display: flex;
@@ -174,11 +138,7 @@
             border: 1px solid var(--border-color);
         }
 
-        .code-output-row {
-            display: flex;
-            gap: 10px;
-        }
-
+        .code-output-row { display: flex; gap: 10px; }
         .code-output-row input {
             flex-grow: 1;
             background: var(--bg-color);
@@ -188,12 +148,6 @@
             color: var(--text-muted);
             font-family: monospace;
             font-size: 0.85rem;
-        }
-
-        .action-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 5px;
         }
 
         button {
@@ -207,37 +161,11 @@
             transition: background-color 0.2s;
             white-space: nowrap;
         }
+        button:hover { background-color: var(--accent-hover); }
+        button.danger-btn { background-color: var(--danger-color); }
+        button.danger-btn:hover { background-color: var(--danger-hover); }
 
-        button:hover {
-            background-color: var(--accent-hover);
-        }
-
-        button.danger-btn {
-            background-color: var(--danger-color);
-        }
-        button.danger-btn:hover {
-            background-color: var(--danger-hover);
-        }
-
-        /* Archive Section */
-        .archive-section {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .archive-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
+        .archive-list { display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto; }
         .archive-item {
             background: var(--bg-color);
             border: 1px solid var(--border-color);
@@ -247,108 +175,25 @@
             flex-direction: column;
             gap: 8px;
         }
+        .archive-item-header { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); }
+        .archive-links { display: flex; flex-direction: column; gap: 6px; font-family: monospace; font-size: 0.8rem; }
+        .archive-link-row { display: flex; gap: 8px; align-items: center; }
+        .archive-link-row input { flex-grow: 1; background: #0b0f19; border: 1px solid var(--border-color); border-radius: 4px; padding: 6px; color: var(--text-muted); }
+        .archive-actions { display: flex; justify-content: flex-end; }
 
-        .archive-item-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .archive-links {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            font-family: monospace;
-            font-size: 0.8rem;
-        }
-
-        .archive-link-row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .archive-link-row input {
-            flex-grow: 1;
-            background: #0b0f19;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 6px;
-            color: var(--text-muted);
-            font-size: 0.75rem;
-        }
-
-        .archive-actions {
-            display: flex;
-            gap: 8px;
-            justify-content: flex-end;
-        }
-
-        .archive-actions button {
-            padding: 5px 12px;
-            font-size: 0.8rem;
-        }
-
-        /* Loading Overlay */
         #loading-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            flex-direction: column;
-            gap: 12px;
-            color: white;
-            font-size: 0.95rem;
-            transition: opacity 0.3s ease;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 20;
-            text-align: center;
-            padding: 20px;
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); display: flex; justify-content: center;
+            align-items: center; flex-direction: column; gap: 12px; color: white;
+            font-size: 0.95rem; transition: opacity 0.3s ease; opacity: 0; pointer-events: none; z-index: 20; text-align: center; padding: 20px;
         }
-        
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid rgba(255,255,255,0.2);
-            border-radius: 50%;
-            border-top-color: var(--accent-color);
-            animation: spin 1s ease-in-out infinite;
-        }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.2); border-radius: 50%; border-top-color: var(--accent-color); animation: spin 1s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Embed mode styling */
-        body.embed-mode .controls-panel,
-        body.embed-mode .archive-section {
-            display: none;
-        }
-        body.embed-mode .app-container {
-            padding: 0;
-            height: 100vh;
-            max-width: 100%;
-        }
-        body.embed-mode .player-wrapper {
-            border-radius: 0;
-            box-shadow: none;
-            max-height: 100vh;
-            height: 100%;
-            aspect-ratio: unset;
-        }
-        body.embed-mode .draggable-watermark {
-            border: none !important;
-            padding: 0 !important;
-            cursor: default !important;
-        }
+        body.embed-mode .controls-panel, body.embed-mode .archive-section { display: none; }
+        body.embed-mode .app-container { padding: 0; height: 100vh; max-width: 100%; }
+        body.embed-mode .player-wrapper { border-radius: 0; box-shadow: none; max-height: 100vh; height: 100%; aspect-ratio: unset; }
+        body.embed-mode .draggable-watermark { border: none !important; padding: 0 !important; cursor: default !important; }
     </style>
 </head>
 <body>
@@ -359,14 +204,14 @@
             <video id="video" controls playsinline></video>
             <div id="loading-overlay">
                 <div class="spinner" id="loading-spinner"></div>
-                <span id="loading-text">Initializing stream...</span>
+                <span id="loading-text">Connecting via Cloud Proxy...</span>
             </div>
         </div>
 
         <!-- Studio & Generator Panel -->
         <div class="controls-panel">
-            <h2>HLS Stream Studio & Embed Generator</h2>
-            <p>Paste any .m3u8 link, click <b>Load Stream</b>, customize watermarks, and generate embed codes.</p>
+            <h2>HLS Stream Studio & Cloud Proxy Generator</h2>
+            <p>Paste any .m3u8 link, drag watermarks to position, adjust scale, and generate persistent embed codes.</p>
             
             <div class="form-grid" style="grid-template-columns: 1fr;">
                 <div class="input-group">
@@ -620,21 +465,22 @@
             }
         }
 
-        // --- HLS.JS PLAYER ENGINE ---
+        // --- PLAYER ENGINE ROUTED THROUGH CLOUDFLARE PROXY ---
         let currentHlsInstance = null;
 
-        function initPlayer(url) {
-            if (!url) {
-                showError('Please enter a valid .m3u8 stream link.');
-                return;
-            }
+        function initPlayer(rawUrl) {
+            if (!rawUrl) { showError('Please enter a stream link.'); return; }
+
+            // REPLACE THIS URL WITH YOUR ACTUAL CLOUDFLARE WORKER URL FROM STEP 1
+            const workerProxyUrl = 'https://broad-cloud-d164.yetisportz.workers.dev/';
+            const proxiedUrl = workerProxyUrl + encodeURIComponent(rawUrl);
 
             if (currentHlsInstance) {
                 currentHlsInstance.destroy();
                 currentHlsInstance = null;
             }
 
-            showLoading('Connecting to stream...');
+            showLoading('Connecting via Cloud Proxy...');
 
             const hlsConfig = {
                 maxBufferLength: 120,
@@ -642,22 +488,19 @@
                 maxBufferSize: 90 * 1000 * 1000,
                 maxBufferHole: 1.0,
                 abrEwmaDefaultEstimate: 150000,
-                abrBandWidthFactor: 0.8,
-                abrBandWidthUpFactor: 0.3,
                 fragLoadingTimeOut: 60000,
                 fragLoadingMaxRetry: 30,
                 fragLoadingRetryDelay: 3000,
                 manifestLoadingTimeOut: 45000,
                 manifestLoadingMaxRetry: 15,
                 enableWorker: true,
-                lowLatencyMode: false,
                 startLevel: 0
             };
 
             if (Hls.isSupported()) {
                 const hls = new Hls(hlsConfig);
                 currentHlsInstance = hls;
-                hls.loadSource(url);
+                hls.loadSource(proxiedUrl);
                 hls.attachMedia(video);
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function() {
@@ -672,37 +515,23 @@
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                // Check if the server is completely unreachable or dead
-                                if (data.response && (data.response.code === 404 || data.response.code === 403 || data.response.code === 500)) {
-                                    showError(`Stream Server Error (${data.response.code}): Link may be dead or offline.`);
-                                } else {
-                                    showLoading('Network lag detected. Retrying connection...');
-                                    hls.startLoad();
-                                }
+                                showLoading('Network lag detected. Retrying connection...');
+                                hls.startLoad();
                                 break;
                             case Hls.ErrorTypes.MEDIA_ERROR:
                                 showLoading('Recovering stream data...');
                                 hls.recoverMediaError();
                                 break;
                             default:
-                                showError('Stream failed to load. The link may be offline or blocked by browser security (CORS/Mixed Content).');
+                                showError('Stream failed. Check if your Cloudflare Worker URL is correct and the stream is active.');
                                 hls.destroy();
                                 break;
                         }
                     }
                 });
-            } 
-            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                video.src = url;
-                video.addEventListener('loadedmetadata', () => {
-                    hideLoading();
-                    video.play().catch(e => {});
-                });
-                video.addEventListener('error', () => {
-                    showError('Failed to load stream natively in Safari.');
-                });
-            } else {
-                showError('Your browser does not support HLS streaming.');
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = proxiedUrl;
+                video.addEventListener('loadedmetadata', () => { hideLoading(); video.play().catch(e => {}); });
             }
         }
 
@@ -712,10 +541,7 @@
             loadingOverlay.style.opacity = '1';
         }
 
-        function hideLoading() {
-            loadingOverlay.style.opacity = '0';
-        }
-
+        function hideLoading() { loadingOverlay.style.opacity = '0'; }
         function showError(msg) {
             loadingSpinner.style.display = 'none';
             loadingText.textContent = msg;
@@ -724,10 +550,7 @@
 
         function handleLoadStreamButton() {
             const inputVal = document.getElementById('stream-url-input').value.trim();
-            if (!inputVal) {
-                showError('Please enter a valid .m3u8 stream link.');
-                return;
-            }
+            if (!inputVal) { showError('Please enter a stream link.'); return; }
             currentStreamSrc = inputVal;
             initPlayer(currentStreamSrc);
             updateEmbedCodes();
@@ -787,17 +610,12 @@
 
         // --- Archive & LocalStorage Management ---
         function getArchive() {
-            try {
-                return JSON.parse(localStorage.getItem('hls_embed_archive') || '[]');
-            } catch(e) {
-                return [];
-            }
+            try { return JSON.parse(localStorage.getItem('hls_embed_archive') || '[]'); } catch(e) { return []; }
         }
 
         function saveCurrentToArchive() {
             const data = generateUrls();
             const archive = getArchive();
-            
             const newItem = {
                 id: Date.now(),
                 date: new Date().toLocaleString(),
@@ -805,18 +623,15 @@
                 directLink: data.directLink,
                 iframeTag: data.iframeTag
             };
-
             archive.unshift(newItem);
             if (archive.length > 20) archive.pop();
-
             localStorage.setItem('hls_embed_archive', JSON.stringify(archive));
             renderArchive();
             alert('Embed configuration saved to archive!');
         }
 
         function deleteArchiveItem(id) {
-            let archive = getArchive();
-            archive = archive.filter(item => item.id !== id);
+            let archive = getArchive().filter(item => item.id !== id);
             localStorage.setItem('hls_embed_archive', JSON.stringify(archive));
             renderArchive();
         }
