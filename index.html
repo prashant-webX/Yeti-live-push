@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyper-Optimized HLS Stream Studio & Archive</title>
+    <title>Hyper-Optimized HLS Stream Studio & Embed Archive</title>
     <!-- Include HLS.js -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
@@ -355,13 +355,13 @@
 
         <!-- Studio & Generator Panel -->
         <div class="controls-panel">
-            <h2>HLS Stream Studio & Watermark Editor</h2>
-            <p>Configured with extreme low-speed resiliency. Drag watermarks to position, adjust scale, and save to archive.</p>
+            <h2>HLS Stream Studio & Embed Generator</h2>
+            <p>Paste any stream link, drag watermarks to position, adjust scale, and generate persistent embed links.</p>
             
             <div class="form-grid">
                 <div class="input-group">
                     <label for="stream-url-input">Stream URL (.m3u8)</label>
-                    <input type="text" id="stream-url-input" placeholder="http://103.151.60.162:2122/play/a027/index.m3u8?hls" oninput="updateEmbedCodes()">
+                    <input type="text" id="stream-url-input" value="http://103.151.60.162:2122/play/a027/index.m3u8?hls" oninput="updateEmbedCodes()">
                 </div>
                 <div class="input-group">
                     <label for="thumbnail-input">Thumbnail Image URL (Poster)</label>
@@ -400,16 +400,18 @@
                 </div>
             </div>
 
+            <!-- Format 2: Direct Player Link -->
             <div class="code-output-group">
-                <label>Direct Player Link (Format 2)</label>
+                <label>Format 2: Direct Player Link (with configuration query params)</label>
                 <div class="code-output-row">
                     <input type="text" id="direct-link-code" readonly>
                     <button onclick="copyCode('direct-link-code', event)">Copy Link</button>
                 </div>
             </div>
 
+            <!-- Format 1: HTML Iframe Tag -->
             <div class="code-output-group">
-                <label>HTML Iframe Tag (Format 1)</label>
+                <label>Format 1: HTML Iframe Tag (Sandboxed)</label>
                 <div class="code-output-row">
                     <input type="text" id="iframe-code" readonly>
                     <button onclick="copyCode('iframe-code', event)">Copy Iframe</button>
@@ -427,7 +429,7 @@
                 <h2>Archived Embeds List (Saved in Browser)</h2>
                 <button class="danger-btn" onclick="clearArchive()">Clear All Archive</button>
             </div>
-            <p>Your generated embeds are archived here and survive page refreshes.</p>
+            <p>Your generated embeds are archived here so they won't disappear when you refresh the page.</p>
             <div class="archive-list" id="archive-list-container"></div>
         </div>
     </div>
@@ -603,33 +605,25 @@
 
         // --- HYPER-OPTIMIZED HLS.JS CONFIG FOR EXTREME LOW SPEED ---
         const hlsConfig = {
-            // Large buffer settings to accumulate video slowly over weak connections
-            maxBufferLength: 120,          // 2 minutes of buffer
-            maxMaxBufferLength: 300,       // Up to 5 minutes buffer cap
-            maxBufferSize: 90 * 1000 * 1000, // 90 MB memory allocation
-            maxBufferHole: 1.0,            // Tolerate 1-second gaps to skip minor packet loss without stopping
-            
-            // Assume extremely low starting bandwidth (150 kbps) to force lowest quality layer
+            maxBufferLength: 120,
+            maxMaxBufferLength: 300,
+            maxBufferSize: 90 * 1000 * 1000,
+            maxBufferHole: 1.0,
             abrEwmaDefaultEstimate: 150000,
             abrBandWidthFactor: 0.8,
-            abrBandWidthUpFactor: 0.3,     // Very conservative quality switching
-            
-            // Extreme timeout & retry parameters for crawling networks
-            fragLoadingTimeOut: 60000,     // 60 seconds per fragment timeout
-            fragLoadingMaxRetry: 30,       // Up to 30 retries before giving up
-            fragLoadingRetryDelay: 3000,   // 3 second pause between retries
+            abrBandWidthUpFactor: 0.3,
+            fragLoadingTimeOut: 60000,
+            fragLoadingMaxRetry: 30,
+            fragLoadingRetryDelay: 3000,
             fragLoadingMaxRetryTimeout: 64000,
-            
             manifestLoadingTimeOut: 45000,
             manifestLoadingMaxRetry: 15,
             manifestLoadingRetryDelay: 2000,
-            
             levelLoadingTimeOut: 45000,
             levelLoadingMaxRetry: 15,
-            
             enableWorker: true,
-            lowLatencyMode: false,         // Standard latency allows building a robust buffer cushion
-            startLevel: 0                  // Force start on the lowest quality rendition
+            lowLatencyMode: false,
+            startLevel: 0
         };
 
         function showLoading(text) {
@@ -652,7 +646,7 @@
             });
 
             video.addEventListener('playing', hideLoading);
-            video.addEventListener('waiting', () => showLoading('you have extremely slow network - buffering...'));
+            video.addEventListener('waiting', () => showLoading('Extremely slow network - buffering...'));
 
             hls.on(Hls.Events.ERROR, function(event, data) {
                 if (data.fatal) {
