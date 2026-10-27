@@ -361,7 +361,7 @@
             <div class="form-grid">
                 <div class="input-group">
                     <label for="stream-url-input">Stream URL (.m3u8)</label>
-                    <input type="text" id="stream-url-input" value="http://103.151.60.162:2122/play/a027/index.m3u8?hls" oninput="updateEmbedCodes()">
+                    <input type="text" id="stream-url-input" placeholder="http://103.151.60.162:2122/play/a027/index.m3u8?hls" oninput="updateEmbedCodes()">
                 </div>
                 <div class="input-group">
                     <label for="thumbnail-input">Thumbnail Image URL (Poster)</label>
@@ -652,7 +652,7 @@
             });
 
             video.addEventListener('playing', hideLoading);
-            video.addEventListener('waiting', () => showLoading('Extremely slow network - buffering...'));
+            video.addEventListener('waiting', () => showLoading('you have extremely slow network - buffering...'));
 
             hls.on(Hls.Events.ERROR, function(event, data) {
                 if (data.fatal) {
