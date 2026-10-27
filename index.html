@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyper-Optimized HLS Stream Studio & Embed Archive</title>
+    <title>HLS Stream Studio & Embed Generator</title>
     <!-- Include HLS.js -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
@@ -142,6 +142,14 @@
             padding: 10px;
             color: var(--text-color);
             font-size: 0.95rem;
+        }
+
+        .stream-input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .stream-input-row input {
+            flex-grow: 1;
         }
 
         .range-slider-group {
@@ -290,7 +298,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.75);
+            background: rgba(0,0,0,0.85);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -298,10 +306,12 @@
             gap: 12px;
             color: white;
             font-size: 0.95rem;
-            pointer-events: none;
             transition: opacity 0.3s ease;
             opacity: 0;
+            pointer-events: none;
             z-index: 20;
+            text-align: center;
+            padding: 20px;
         }
         
         .spinner {
@@ -348,21 +358,27 @@
         <div class="player-wrapper" id="player-wrapper">
             <video id="video" controls playsinline></video>
             <div id="loading-overlay">
-                <div class="spinner"></div>
-                <span id="loading-text">Buffering on ultra-low speed network...</span>
+                <div class="spinner" id="loading-spinner"></div>
+                <span id="loading-text">Initializing stream...</span>
             </div>
         </div>
 
         <!-- Studio & Generator Panel -->
         <div class="controls-panel">
             <h2>HLS Stream Studio & Embed Generator</h2>
-            <p>Paste any stream link, drag watermarks to position, adjust scale, and generate persistent embed links.</p>
+            <p>Paste any .m3u8 link, click <b>Load Stream</b>, customize watermarks, and generate embed codes.</p>
             
-            <div class="form-grid">
+            <div class="form-grid" style="grid-template-columns: 1fr;">
                 <div class="input-group">
                     <label for="stream-url-input">Stream URL (.m3u8)</label>
-                    <input type="text" id="stream-url-input" value="http://103.151.60.162:2122/play/a027/index.m3u8?hls" oninput="updateEmbedCodes()">
+                    <div class="stream-input-row">
+                        <input type="text" id="stream-url-input" value="http://103.151.60.162:2122/play/a027/index.m3u8?hls">
+                        <button onclick="handleLoadStreamButton()">Load Stream</button>
+                    </div>
                 </div>
+            </div>
+
+            <div class="form-grid">
                 <div class="input-group">
                     <label for="thumbnail-input">Thumbnail Image URL (Poster)</label>
                     <input type="text" id="thumbnail-input" placeholder="https://example.com/poster.jpg" oninput="updateEmbedCodes()">
@@ -439,6 +455,7 @@
         const playerWrapper = document.getElementById('player-wrapper');
         const loadingOverlay = document.getElementById('loading-overlay');
         const loadingText = document.getElementById('loading-text');
+        const loadingSpinner = document.getElementById('loading-spinner');
 
         // Parse URL parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -456,10 +473,10 @@
         const wiScale = parseFloat(urlParams.get('wi_scale')) || 1.0;
 
         const defaultStream = 'http://103.151.60.162:2122/play/a027/index.m3u8?hls';
-        const videoSrc = customUrl ? decodeURIComponent(customUrl) : defaultStream;
+        let currentStreamSrc = customUrl ? decodeURIComponent(customUrl) : defaultStream;
         const posterSrc = customPoster ? decodeURIComponent(customPoster) : '';
 
-        if (customUrl) document.getElementById('stream-url-input').value = videoSrc;
+        if (customUrl) document.getElementById('stream-url-input').value = currentStreamSrc;
         if (customPoster) document.getElementById('thumbnail-input').value = posterSrc;
         if (customWText) document.getElementById('watermark-text-input').value = customWText;
         if (customWImg) document.getElementById('watermark-img-input').value = customWImg;
@@ -603,30 +620,94 @@
             }
         }
 
-        // --- HYPER-OPTIMIZED HLS.JS CONFIG FOR EXTREME LOW SPEED ---
-        const hlsConfig = {
-            maxBufferLength: 120,
-            maxMaxBufferLength: 300,
-            maxBufferSize: 90 * 1000 * 1000,
-            maxBufferHole: 1.0,
-            abrEwmaDefaultEstimate: 150000,
-            abrBandWidthFactor: 0.8,
-            abrBandWidthUpFactor: 0.3,
-            fragLoadingTimeOut: 60000,
-            fragLoadingMaxRetry: 30,
-            fragLoadingRetryDelay: 3000,
-            fragLoadingMaxRetryTimeout: 64000,
-            manifestLoadingTimeOut: 45000,
-            manifestLoadingMaxRetry: 15,
-            manifestLoadingRetryDelay: 2000,
-            levelLoadingTimeOut: 45000,
-            levelLoadingMaxRetry: 15,
-            enableWorker: true,
-            lowLatencyMode: false,
-            startLevel: 0
-        };
+        // --- HLS.JS PLAYER ENGINE ---
+        let currentHlsInstance = null;
+
+        function initPlayer(url) {
+            if (!url) {
+                showError('Please enter a valid .m3u8 stream link.');
+                return;
+            }
+
+            if (currentHlsInstance) {
+                currentHlsInstance.destroy();
+                currentHlsInstance = null;
+            }
+
+            showLoading('Connecting to stream...');
+
+            const hlsConfig = {
+                maxBufferLength: 120,
+                maxMaxBufferLength: 300,
+                maxBufferSize: 90 * 1000 * 1000,
+                maxBufferHole: 1.0,
+                abrEwmaDefaultEstimate: 150000,
+                abrBandWidthFactor: 0.8,
+                abrBandWidthUpFactor: 0.3,
+                fragLoadingTimeOut: 60000,
+                fragLoadingMaxRetry: 30,
+                fragLoadingRetryDelay: 3000,
+                manifestLoadingTimeOut: 45000,
+                manifestLoadingMaxRetry: 15,
+                enableWorker: true,
+                lowLatencyMode: false,
+                startLevel: 0
+            };
+
+            if (Hls.isSupported()) {
+                const hls = new Hls(hlsConfig);
+                currentHlsInstance = hls;
+                hls.loadSource(url);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    showLoading('Buffering stream...');
+                    video.play().catch(e => hideLoading());
+                });
+
+                video.addEventListener('playing', hideLoading);
+                video.addEventListener('waiting', () => showLoading('Buffering (Slow network)...'));
+
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                // Check if the server is completely unreachable or dead
+                                if (data.response && (data.response.code === 404 || data.response.code === 403 || data.response.code === 500)) {
+                                    showError(`Stream Server Error (${data.response.code}): Link may be dead or offline.`);
+                                } else {
+                                    showLoading('Network lag detected. Retrying connection...');
+                                    hls.startLoad();
+                                }
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                showLoading('Recovering stream data...');
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                showError('Stream failed to load. The link may be offline or blocked by browser security (CORS/Mixed Content).');
+                                hls.destroy();
+                                break;
+                        }
+                    }
+                });
+            } 
+            else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => {
+                    hideLoading();
+                    video.play().catch(e => {});
+                });
+                video.addEventListener('error', () => {
+                    showError('Failed to load stream natively in Safari.');
+                });
+            } else {
+                showError('Your browser does not support HLS streaming.');
+            }
+        }
 
         function showLoading(text) {
+            loadingSpinner.style.display = 'block';
             loadingText.textContent = text;
             loadingOverlay.style.opacity = '1';
         }
@@ -635,41 +716,21 @@
             loadingOverlay.style.opacity = '0';
         }
 
-        if (Hls.isSupported()) {
-            const hls = new Hls(hlsConfig);
-            hls.loadSource(videoSrc);
-            hls.attachMedia(video);
+        function showError(msg) {
+            loadingSpinner.style.display = 'none';
+            loadingText.textContent = msg;
+            loadingOverlay.style.opacity = '1';
+        }
 
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                showLoading('Buffering stream on ultra-low bandwidth...');
-                video.play().catch(e => hideLoading());
-            });
-
-            video.addEventListener('playing', hideLoading);
-            video.addEventListener('waiting', () => showLoading('Extremely slow network - buffering...'));
-
-            hls.on(Hls.Events.ERROR, function(event, data) {
-                if (data.fatal) {
-                    switch (data.type) {
-                        case Hls.ErrorTypes.NETWORK_ERROR:
-                            showLoading('Network lag detected. Retrying connection...');
-                            hls.startLoad();
-                            break;
-                        case Hls.ErrorTypes.MEDIA_ERROR:
-                            showLoading('Recovering stream data...');
-                            hls.recoverMediaError();
-                            break;
-                        default:
-                            showLoading('Restarting stream...');
-                            hls.destroy();
-                            break;
-                    }
-                }
-            });
-        } 
-        else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = videoSrc;
-            video.addEventListener('loadedmetadata', () => video.play().catch(e => {}));
+        function handleLoadStreamButton() {
+            const inputVal = document.getElementById('stream-url-input').value.trim();
+            if (!inputVal) {
+                showError('Please enter a valid .m3u8 stream link.');
+                return;
+            }
+            currentStreamSrc = inputVal;
+            initPlayer(currentStreamSrc);
+            updateEmbedCodes();
         }
 
         // --- Embed Code Generation ---
@@ -815,6 +876,7 @@
 
         window.onload = function() {
             initWatermarks();
+            initPlayer(currentStreamSrc);
             updateEmbedCodes();
             renderArchive();
         };
